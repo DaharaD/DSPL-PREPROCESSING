@@ -32,7 +32,7 @@ def set_background_from_url(url):
         unsafe_allow_html=True
     )
 
-image_url = "https://raw.githubusercontent.com/DaharaD/DSPL-PREPROCESSING/main/Images/download%20(26).jpeg"
+image_url = "https://raw.githubusercontent.com/DaharaD/DSPL-PREPROCESSING/main/Images/Vivid%20illustrations%20showcase%20variety%20of%20natural%20foods%2C%20promoting%20wellness.jpeg"
 set_background_from_url(image_url)
 
 # Load Data
@@ -199,3 +199,49 @@ elif view == "Dashboard":
     sns.countplot(data=filtered_df, y='Provider_Admin2_Name', palette="coolwarm", order=top_admin2, ax=ax)
     ax.set_title("Top 10 Districts by Number of Records (Provider_Admin2_Name)")
     st.pyplot(fig)
+
+
+
+import streamlit as st
+import pandas as pd
+import os
+from PIL import Image
+
+
+
+# Load your dataset
+@st.cache_data
+def load_data():
+    return pd.read_excel("cleaned_hdx_hapi_food_price_lka.xlsx")
+
+df = load_data()
+
+# Get unique commodities
+commodities = sorted(df['Commodity_Name'].dropna().unique())
+
+# Sidebar filter
+st.sidebar.header("Select a Commodity")
+selected_commodity = st.sidebar.selectbox("Choose a commodity to view details", commodities)
+
+# Filter dataframe based on selected commodity
+filtered_df = df[df['Commodity_Name'] == selected_commodity]
+
+# Display title
+st.title("About the Commodity")
+st.markdown(f"### {selected_commodity}")
+
+# Load and display image from GitHub local repo
+image_path = f"Commodities/{selected_commodity}.png"
+if os.path.exists(image_path):
+    image = Image.open(image_path)
+    st.image(image, use_column_width=True)
+else:
+    st.warning("Image not available for this commodity.")
+
+# Display selected commodity data
+st.subheader("Market Information")
+for index, row in filtered_df.iterrows():
+    with st.expander(f" Market: {row['Market_Name']}"):
+        st.write(f"**Price:** {row['Price']} {row['Unit']}")
+        st.write(f"**Region:** {row['Provider_Admin1_Name']} / {row['Provider_Admin2_Name']}")
+
