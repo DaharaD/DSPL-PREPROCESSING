@@ -1,34 +1,78 @@
 import streamlit as st
+import pandas as pd
+import plotly.express as px
+from PIL import Image
+import os
+
+def load_data():
+    Food = pd.read_excel("cleaned_hdx_hapi_food_price_lka.xlsx")
+    return Food
+
+Food = load_data()
 
 def show_about():
     st.title("About This Dashboard")
     st.markdown("""
-        Purpose
-This dashboard is designed to provide insights into food prices across various regions in Sri Lanka. It uses data from the Humanitarian Data Exchange (HDX) to track price trends, compare prices across different commodities, and visualize geographic distributions.
-
-Data Source
-The data is sourced from the Humanitarian Data Exchange (HDX) and includes information on food prices collected from various markets across Sri Lanka. The dataset includes details such as:
-
-Region: The administrative region where the data was collected.
-Commodity: The type of food item.
-Price: The price of the commodity.
-Date: The date when the price was recorded.
-Features
-Dashboard: Explore trends and movements in food prices using interactive charts and tables.
-Filters: Filter data by region, food item, and date range to customize the view.
-Visualizations: View line charts, scatter plots, histograms, and more to gain insights into the data.
-How to Use
-Use the sidebar to navigate between the Dashboard and About pages. Apply filters to customize the data view and explore different visualizations to gain insights into food prices in Sri Lanka.
-
-Key Metrics
-Total Records: The total number of records in the dataset.
-Unique Food Items: The number of unique food items covered in the dataset.
-Regions Covered: The number of regions from which data has been collected.
-Visualizations
-Price Trends Over Time: Line charts showing the price trends of various commodities over time.
-Animated Price Spread by Region: Animated scatter plots showing the price movement of commodities across different regions.
-Price Distribution Histogram by Commodity: Histograms showing the distribution of standardized prices for different commodities.
-Average Monthly Prices by Commodity Category: Line charts summarizing the average monthly prices of different commodity categories.
-Provider Admin1 and Admin2 Distribution: Count plots showing the distribution of records by province and district.
+       This interactive dashboard visualizes food price trends in Sri Lanka using data from the Humanitarian Data Exchange (HDX). 
+                It enables users to explore price fluctuations by region, commodity, and time period. Key features include 
+                animated plots, heatmaps, interactive filters, and geographic distributions, offering valuable insights for policymakers, researchers, and the public.
     """)
 
+    st.subheader("Key Features")
+    st.markdown("""
+    - Interactive visualizations (line charts, heatmaps, bar charts)
+    - Region and commodity filters
+    - Monthly and yearly price comparisons
+    - Download options for filtered data
+    - Clean, responsive layout with multi-page navigation
+    """)
+
+    st.divider()
+
+    st.subheader("Sample Visualization")
+
+    # Dropdown filters for demo plot
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        selected_region = st.selectbox("Select a Region", sorted(Food["Admin1_Name"].dropna().unique()))
+
+    with col2:
+        selected_commodity = st.selectbox("Select a Commodity", sorted(Food["Commodity_Name"].dropna().unique()))
+
+    with col3:
+        selected_unit = st.selectbox("Select a Unit", sorted(Food["Unit"].dropna().unique()))
+
+# Filter data
+    filtered_df = Food[(Food["Admin1_Name"] == selected_region) & (Food["Commodity_Name"] == selected_commodity)]
+
+    if not filtered_df.empty:
+        fig = px.line(
+            filtered_df.sort_values("Reference_Period_Start"),
+            x="Reference_Period_Start",
+            y="Price",
+            title=f"Price Trend for {selected_commodity} in {selected_region}",
+            labels={"Price": "Price (LKR)", "Reference_Period_Start": "Date"},
+            markers=True,
+            template="plotly_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data available for the selected filters.")
+
+# Filter data
+    filtered_df = Food[(Food["Admin1_Name"] == selected_region) & (Food["Commodity_Name"] == selected_commodity)]
+
+    if not filtered_df.empty:
+        fig = px.line(
+            filtered_df.sort_values("Reference_Period_Start"),
+            x="Reference_Period_Start",
+            y="Price",
+            title=f"Price Trend for {selected_commodity} in {selected_region}",
+            labels={"Price": "Price (LKR)", "Reference_Period_Start": "Date"},
+            markers=True,
+            template="plotly_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data available for the selected filters.")

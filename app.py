@@ -32,7 +32,7 @@ def set_background_from_url(url):
         unsafe_allow_html=True
     )
 
-image_url = "https://raw.githubusercontent.com/DaharaD/DSPL-PREPROCESSING/main/Images/download%20(26).jpeg"
+image_url = "https://github.com/DaharaD/DSPL-PREPROCESSING/raw/main/Images/After%20hours%20%E2%80%94%20intothelife.jpeg​"
 set_background_from_url(image_url)
 
 # Load Data
@@ -180,13 +180,11 @@ elif view == "Dashboard":
     st.plotly_chart(fig6, use_container_width=True)
 
     # Provider Admin1 and Admin2 charts
-    st.title("Provider Admin1 Distribution")
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.countplot(data=Food, y='Provider_Admin1_Name', order=Food['Provider_Admin1_Name'].value_counts().index, palette="magma", ax=ax)
     ax.set_title("Number of Records by Province (Provider_Admin1_Name)")
     st.pyplot(fig)
 
-    st.title("Provider Admin2 Distribution by Commodity Category (Top 10)")
     top_admin2 = Food['Provider_Admin2_Name'].value_counts().nlargest(10).index
     filtered_df = Food[Food['Provider_Admin2_Name'].isin(top_admin2)]
     fig, ax = plt.subplots(figsize=(12, 7))
@@ -194,8 +192,71 @@ elif view == "Dashboard":
     ax.set_title("Top 10 Districts by Commodity Category Distribution")
     st.pyplot(fig)
 
-    st.title("Provider Admin2 Distribution (Top 10)")
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.countplot(data=filtered_df, y='Provider_Admin2_Name', palette="coolwarm", order=top_admin2, ax=ax)
     ax.set_title("Top 10 Districts by Number of Records (Provider_Admin2_Name)")
     st.pyplot(fig)
+
+
+from difflib import get_close_matches
+@st.cache_data
+def load_data():
+    return pd.read_excel("cleaned_hdx_hapi_food_price_lka.xlsx")
+
+data = load_data()
+
+# Sidebar
+st.sidebar.header("Commodity Filter")
+commodity_names = sorted(data["Commodity_Name"].unique())
+selected_commodity = st.sidebar.selectbox("Choose a Commodity", commodity_names)
+
+filtered_data = data[data["Commodity_Name"] == selected_commodity]
+
+st.title("About This Commodity")
+st.subheader(f"Selected Commodity: {selected_commodity}")
+
+# === Image Matching === #
+image_folder = "Commodities"
+valid_extensions = [".jpg", ".jpeg", ".png"]
+available_images = [f for f in os.listdir(image_folder) if os.path.splitext(f)[1].lower() in valid_extensions]
+
+# Try exact match first
+def find_image(commodity_name):
+    for ext in valid_extensions:
+        exact_name = f"{commodity_name}{ext}"
+        if exact_name in available_images:
+            return os.path.join(image_folder, exact_name)
+
+    # Fallback to fuzzy matching
+    base = commodity_name.lower().replace(" ", "").replace("(", "").replace(")", "")
+    candidates = {img: img.lower().replace(" ", "").replace("_", "").replace("-", "").replace("(", "").replace(")", "") for img in available_images}
+    match = get_close_matches(base, candidates.values(), n=1, cutoff=0.6)
+    if match:
+        for original_name, cleaned in candidates.items():
+            if cleaned == match[0]:
+                return os.path.join(image_folder, original_name)
+
+    return None
+
+image_path = find_image(selected_commodity)
+
+if image_path and os.path.exists(image_path):
+    st.image(image_path, caption=selected_commodity, use_column_width=True)
+else:
+    st.warning("Image not available for this commodity.")
+
+# === Show Description Table === #
+if not filtered_data.empty:
+    info = filtered_data.iloc[0][[
+        "Market_Name", "Commodity_Category", "Price", "Unit",
+        "Provider_Admin1_Name", "Provider_Admin2_Name"
+    ]]
+    st.markdown("Commodity Market Information")
+    st.markdown(f"""
+    - **Market Name**: {info['Market_Name']}
+    - **Category**: {info['Commodity_Category']}
+    - **Price**: {info['Price']} {info['Unit']}
+    - **Region**: {info['Provider_Admin1_Name']} > {info['Provider_Admin2_Name']}
+    """)
+else:
+    st.error("No data found for the selected commodity.")
