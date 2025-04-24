@@ -32,7 +32,7 @@ def set_background_from_url(url):
         unsafe_allow_html=True
     )
 
-image_url = "https://raw.githubusercontent.com/DaharaD/DSPL-PREPROCESSING/main/Images/Vivid%20illustrations%20showcase%20variety%20of%20natural%20foods%2C%20promoting%20wellness.jpeg"
+image_url = "https://github.com/DaharaD/DSPL-PREPROCESSING/raw/main/Images/After%20hours%20%E2%80%94%20intothelife.jpeg"
 set_background_from_url(image_url)
 
 # Load Data
