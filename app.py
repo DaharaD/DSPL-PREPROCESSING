@@ -43,266 +43,600 @@ def load_data():
 
 Food = load_data()
 
-# Sidebar Navigation - About first and selected by default
+# Sidebar Navigation
 st.sidebar.title("Navigation")
 view = st.sidebar.radio("Go to", ["About", "Dashboard"])
 
 if view == "About":
     show_about()
+    st.stop()
 
-elif view == "Dashboard":
-    # Sidebar filters
-    st.sidebar.title("Filter Data")
-    locations = st.sidebar.multiselect(
-        "Select Region", 
-        Food['Admin1_Name'].dropna().unique(), 
-        default=Food['Admin1_Name'].dropna().unique()
-    )
-    items = st.sidebar.multiselect(
-        "Select Food Item", 
-        Food['Commodity_Name'].dropna().unique(), 
-        default=Food['Commodity_Name'].dropna().unique()
-    )
-    years = st.sidebar.slider(
-        "Select Year Range", 
-        int(Food['Reference_Period_Start'].dt.year.min()), 
-        int(Food['Reference_Period_Start'].dt.year.max()), 
-        (2015, 2024)
-    )
+# Dashboard Page Content
+st.title("Sri Lanka's Food Prices Uncovered")
+st.markdown("Track Real-time shifts and historical trends in food prices across Sri Lanka. From urban centers to remote markets, this dashboard reveals how economic conditions and local dynamics influence the cost of everyday essentials. Powered by curated data from the Humanitarian Data Exchange (HDX), it's your window into understanding affordability, market volatility, and regional disparities at a glance.")
 
-    # Apply filters
-    filtered = Food[
-        (Food['Admin1_Name'].isin(locations)) &
-        (Food['Commodity_Name'].isin(items)) &
-        (Food['Reference_Period_Start'].dt.year >= years[0]) &
-        (Food['Reference_Period_Start'].dt.year <= years[1])
-    ]
+# Sidebar filters
+st.sidebar.title("Filter Data")
+locations = st.sidebar.multiselect(
+    "Select Region", 
+    Food['Admin1_Name'].dropna().unique(), 
+    default=Food['Admin1_Name'].dropna().unique()
+)
+items = st.sidebar.multiselect(
+    "Select Food Item", 
+    Food['Commodity_Name'].dropna().unique(), 
+    default=Food['Commodity_Name'].dropna().unique()
+)
+years = st.sidebar.slider(
+    "Select Year Range", 
+    int(Food['Reference_Period_Start'].dt.year.min()), 
+    int(Food['Reference_Period_Start'].dt.year.max()), 
+    (2015, 2024)
+)
 
-    st.title("Sri Lanka Food Price Dashboard")
-    st.markdown("Explore trends and movements in food prices across Sri Lanka using data from the Humanitarian Data Exchange (HDX).")
+# Apply filters
+filtered = Food[
+    (Food['Admin1_Name'].isin(locations)) &
+    (Food['Commodity_Name'].isin(items)) &
+    (Food['Reference_Period_Start'].dt.year >= years[0]) &
+    (Food['Reference_Period_Start'].dt.year <= years[1])
+]
 
-    # Key metrics
-    st.subheader("Key Metrics")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Records", len(filtered))
-    col2.metric("Unique Food Items", filtered['Commodity_Name'].nunique())
-    col3.metric("Regions Covered", filtered['Admin1_Name'].nunique())
+# Key metrics
+st.subheader("Key Metrics")
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Records", len(filtered))
+col2.metric("Unique Food Items", filtered['Commodity_Name'].nunique())
+col3.metric("Regions Covered", filtered['Admin1_Name'].nunique())
 
-    # Line chart
-    st.subheader("Price Trends Over Time")
-    fig1 = px.line(
-        filtered, 
-        x='Reference_Period_Start', 
-        y='Price', 
-        color='Commodity_Category', 
-        line_group='Admin1_Name', 
-        hover_data=['Unit'], 
-        markers=True
-    )
-    st.plotly_chart(fig1, use_container_width=True)
+# Data Table
+st.subheader("Data Table")
+st.dataframe(filtered)
 
-    # Animated scatter
-    st.subheader("Animated Price Spread by Region")
-    animated_fig = px.scatter(
-        filtered,
-        x="Admin1_Name",
-        y="Price",
-        animation_frame=filtered["Reference_Period_Start"].dt.strftime("%Y-%m"),
-        color="Commodity_Name",
-        size="Price",
-        hover_name="Commodity_Name",
-        title="Price Movement Over Time",
-        size_max=50
-    )
-    st.plotly_chart(animated_fig, use_container_width=True)
+# Additional Interactivity
+commodity = st.sidebar.selectbox('Select Commodity', Food['Commodity_Name'].unique())
+price_type = st.sidebar.selectbox('Select Price Type', Food['Price_Type'].unique())
+date_range = st.sidebar.date_input(
+    'Select Date Range', 
+    [Food['Reference_Period_Start'].min(), Food['Reference_Period_End'].max()]
+)
 
-    # Data Table
-    st.subheader("Data Table")
-    st.dataframe(filtered)
+filtered_df = Food[
+    (Food['Commodity_Name'] == commodity) &
+    (Food['Price_Type'] == price_type) &
+    (Food['Reference_Period_Start'] >= pd.to_datetime(date_range[0])) &
+    (Food['Reference_Period_End'] <= pd.to_datetime(date_range[1]))
+]
 
-    # Additional Interactivity
-    commodity = st.sidebar.selectbox('Select Commodity', Food['Commodity_Name'].unique())
-    price_type = st.sidebar.selectbox('Select Price Type', Food['Price_Type'].unique())
-    date_range = st.sidebar.date_input(
-        'Select Date Range', 
-        [Food['Reference_Period_Start'].min(), Food['Reference_Period_End'].max()]
-    )
+# Price Change Sparlines
+st.subheader("Price Trends Sparklines")
+weekly = filtered_df.set_index('Reference_Period_Start').resample('W')['Price'].mean()
 
-    filtered_df = Food[
-        (Food['Commodity_Name'] == commodity) &
-        (Food['Price_Type'] == price_type) &
-        (Food['Reference_Period_Start'] >= pd.to_datetime(date_range[0])) &
-        (Food['Reference_Period_End'] <= pd.to_datetime(date_range[1]))
-    ]
+fig = px.line(
+    weekly,
+    height=150,
+    title="",
+    markers=True
+)
+fig.update_layout(showlegend=False, margin=dict(t=10,b=10,l=10,r=10))
+st.plotly_chart(fig, use_container_width=True)
 
-    # Charts
-    st.subheader(f'{commodity} Prices ({price_type})')
-    st.dataframe(filtered_df)
+# Charts 
+st.subheader(f' {commodity} Price Analysis ({price_type})')
 
-    fig = px.line(
-        filtered_df, 
-        x='Reference_Period_Start', 
-        y='Price', 
-        color='Commodity_Name', 
-        line_group='Admin1_Name', 
-        title="Price Trends by Commodity and District", 
-        markers=True
-    )
-    st.plotly_chart(fig)
-
-    fig = px.line(
-        filtered_df, 
-        x='Reference_Period_End', 
-        y='Price', 
-        color='Commodity_Name', 
-        line_group='Admin1_Name', 
-        title="Price Trends by Commodity and District", 
-        markers=True
-    )
-    st.plotly_chart(fig)
-
-    fig_bar_all = px.bar(
-        filtered_df, 
-        x='Commodity_Name', 
-        y='Price', 
-        color='Admin1_Name', 
-        title="Individual Prices by Commodity and District", 
-        barmode='group'
-    )
-    st.plotly_chart(fig_bar_all)
-
-    fig_box = px.box(
-        filtered_df, 
-        x='Commodity_Name', 
-        y='Price', 
-        color='Commodity_Name', 
-        title="Price Distribution by Commodity"
-    )
-    st.plotly_chart(fig_box)
-
-    fig_map = px.scatter_mapbox(
+# Creating 3 tabs
+tab1, tab2, tab3 = st.tabs(["Trend Analysis", "Regional Comparison", "Price Distribution"])
+with tab1:
+    # Small multiple area charts
+    fig = px.area(
         filtered_df,
+        x='Reference_Period_Start',
+        y='Price',
+        facet_col='Admin1_Name',
+        facet_col_wrap=3,  # 3 charts per row
+        height=400,
+        title=f"{commodity} Prices by District"
+    )
+    fig.update_yaxes(matches=None)  # Allow different y-scales
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Compact stats instead of dataframe
+    latest = filtered_df.nlargest(1, 'Reference_Period_Start')
+    st.metric("Latest Price", 
+             f"{latest['Price'].values[0]:.2f} LKR", 
+             f"{latest['Admin1_Name'].values[0]}")
+
+with tab2:
+    # Enhanced regional comparison
+    fig_regional = px.bar(
+        filtered_df,
+        x='Admin1_Name',
+        y='Price',
+        color='Admin1_Name',
+        title=f"{commodity} Prices Across Districts",
+        labels={'Price': 'Price (LKR)', 'Admin1_Name': 'District'},
+        height=500
+    )
+    fig_regional.update_layout(showlegend=False)
+    st.plotly_chart(fig_regional, use_container_width=True)
+    
+    # Regional stats table
+    regional_stats = filtered_df.groupby('Admin1_Name')['Price'].agg(['mean', 'min', 'max'])
+    st.dataframe(
+        regional_stats.style.format("{:.2f}"),
+        use_container_width=True
+    )
+
+with tab3:
+    # Enhanced distribution view
+    fig_dist = px.box(
+        filtered_df,
+        x='Admin1_Name',
+        y='Price',
+        color='Admin1_Name',
+        title=f"{commodity} Price Distribution by District",
+        points='all',
+        height=500
+    )
+    fig_dist.update_layout(showlegend=False)
+    st.plotly_chart(fig_dist, use_container_width=True)    
+    
+    # Overall stats
+    st.metric("Average Price", f"{filtered_df['Price'].mean():.2f} LKR")
+    st.metric("Price Range", 
+             f"{filtered_df['Price'].min():.2f} - {filtered_df['Price'].max():.2f} LKR")
+
+#Price alert system
+st.subheader("Price Alert System")
+alert_threshold = st.sidebar.number_input("Set price alert threshold (LKR)", min_value=0)
+exceeded = filtered[filtered['Price'] > alert_threshold]
+if len(exceeded) > 0:
+    st.warning(f"{len(exceeded)} records exceed {alert_threshold} LKR:")
+    st.dataframe(exceeded[['Commodity_Name', 'Market_Name', 'Price']].sort_values('Price', ascending=False))
+
+# Geomap 
+st.subheader("Geographic Distribution of Food Prices")
+fig_map = px.scatter_mapbox(
+    filtered_df,
+    lat="Latitude",
+    lon="Longitude",
+    color="Commodity_Name",
+    size="Price",
+    hover_name="Commodity_Name",
+    hover_data=["Admin1_Name", "Price", "Unit"],
+    zoom=6,
+    height=500,
+    title="Geographic Distribution of Food Prices"
+)
+fig_map.update_layout(mapbox_style="carto-positron")
+fig_map.update_layout(margin={"r":0,"t":50,"l":0,"b":0})
+st.plotly_chart(fig_map)
+
+# Overall distribution
+st.subheader("Commodity Distribution")
+commodity_counts = Food['Commodity_Name'].value_counts().reset_index()
+commodity_counts.columns = ['Commodity_Name', 'Count']
+
+fig_pie = px.pie(
+    commodity_counts, 
+    values='Count', 
+    names='Commodity_Name', 
+    title="Overall Commodity Distribution", 
+    hole=0.2
+)
+st.plotly_chart(fig_pie)
+
+
+# Create simplified pie chart
+st.subheader("Commodity Distribution")
+px.pie(
+    Food, 
+    names='Commodity_Name', 
+    title="Share of Each Commodity in Dataset"
+).update_traces(
+    textposition='inside',
+    textinfo='percent+label'
+)
+
+
+# Simplified grouped bar chart
+st.subheader("Average Prices by Region & Category")
+fig = px.bar(
+    filtered.groupby(['Admin1_Name', 'Commodity_Category'])['Standardized_Price'].mean().reset_index(),
+    x='Admin1_Name',
+    y='Standardized_Price',
+    color='Commodity_Category',
+    barmode='group',
+    title='Average Prices Across Regions',
+    labels={'Standardized_Price': 'Avg Price', 'Admin1_Name': 'Region'},
+    height=500
+)
+fig.update_layout(
+    xaxis={'categoryorder':'total descending'},
+    yaxis_title="Average Standardized Price"
+)
+st.plotly_chart(fig, use_container_width=True)
+
+
+# Create a simple heatmap
+st.subheader("Market Commodity Distribution")
+fig = px.density_heatmap(
+    filtered,
+    x='Market_Name',
+    y='Commodity_Category',
+    title="Commodity Availability by Market",
+    height=500
+)
+fig.update_layout(
+    xaxis_title="Market",
+    yaxis_title="Commodity Category",
+    xaxis={'categoryorder':'total descending'}
+)
+st.plotly_chart(fig, use_container_width=True)
+
+
+# Top 10 volatile commodities
+st.subheader("Top 10 Volatile Commodities ")
+volatility = filtered.groupby("Commodity_Name")["Price_Std"].mean().sort_values(ascending=False).head(10).reset_index()
+fig4 = px.bar(
+    volatility, 
+    x="Commodity_Name", 
+    y="Price_Std", 
+    color="Commodity_Name", 
+    title="Top 10 Most Volatile Commodities (Based on Std Dev)"
+)
+fig4.update_layout(height=500)
+st.plotly_chart(fig4, use_container_width=True)
+
+# Create a box plot for price distribution across markets
+st.subheader("Price Distribution by Market")
+fig = px.box(
+    filtered,
+    x="Market_Name",
+    y="Price",
+    title="Price Distribution Across Markets",
+    height=600
+)
+fig.update_layout(
+    xaxis_title="Market",
+    yaxis_title="Price (LKR)",
+    xaxis={'categoryorder':'total descending'},  # Sort by median price
+    showlegend=False
+)
+st.plotly_chart(fig, use_container_width=True)
+
+
+# Monthly trend summary
+st.subheader("Monthly prices by commodity category")
+monthly = filtered.groupby(["Start_Month", "Commodity_Category"])["Price_Std"].mean().reset_index()
+fig6 = px.line(
+    monthly, 
+    x="Start_Month", 
+    y="Price_Std", 
+    color="Commodity_Category", 
+    markers=True, 
+    title="Standard Monthly Prices by Commodity Category"
+)
+fig6.update_layout(height=500)
+st.plotly_chart(fig6, use_container_width=True)
+
+# Price Comparison Tool
+st.subheader("Price Comparison Tool")
+col1, col2 = st.columns(2)
+with col1:
+    compare_commodity = st.selectbox("Select Commodity to Compare", Food['Commodity_Name'].unique())
+with col2:
+    compare_regions = st.multiselect(
+        "Select Regions to Compare", 
+        Food['Admin1_Name'].unique(), 
+        default=Food['Admin1_Name'].unique()[:3]
+    )
+
+compare_df = Food[
+    (Food['Commodity_Name'] == compare_commodity) &
+    (Food['Admin1_Name'].isin(compare_regions))
+]
+
+if not compare_df.empty:
+    fig_compare = px.line(
+        compare_df, 
+        x='Reference_Period_Start', 
+        y='Price', 
+        color='Admin1_Name',
+        title=f'{compare_commodity} Price Comparison Across Regions',
+        markers=True,
+        line_shape='spline'
+    )
+    st.plotly_chart(fig_compare, use_container_width=True)
+    
+    # Add statistical summary
+    st.write("*Statistical Summary*")
+    stats = compare_df.groupby('Admin1_Name')['Price'].agg(['mean', 'median', 'std', 'min', 'max'])
+    st.dataframe(stats.style.background_gradient(cmap='Blues'))
+else:
+    st.warning("No data available for the selected filters.")
+
+# Interactive Correlation Matrix
+st.subheader("Price Correlations Between Commodities")
+corr_region = st.selectbox(
+    "Select Region for Correlation Analysis", 
+    Food['Admin1_Name'].unique()
+)
+
+# Pivot data for correlation
+corr_df = Food[Food['Admin1_Name'] == corr_region].pivot_table(
+    index='Reference_Period_Start',
+    columns='Commodity_Name',
+    values='Price',
+    aggfunc='mean'
+).corr()
+
+# Create heatmap
+fig_corr = px.imshow(
+    corr_df,
+    labels=dict(x="Commodity", y="Commodity", color="Correlation"),
+    x=corr_df.columns,
+    y=corr_df.columns,
+    color_continuous_scale='RdBu',
+    zmin=-1,
+    zmax=1,
+    title=f"Price Correlation Matrix for {corr_region}"
+)
+fig_corr.update_layout(height=800)
+st.plotly_chart(fig_corr, use_container_width=True)
+
+# Price Affordability Analysis
+st.subheader("Price Affordability Analysis")
+avg_income = 50000 
+filtered['Price_to_Income_Ratio'] = filtered['Price'] / avg_income * 100
+
+affordability_fig = px.box(
+    filtered,
+    x='Commodity_Category',
+    y='Price_to_Income_Ratio',
+    color='Admin1_Name',
+    title='Price as Percentage of Average Income by Category and Region',
+    labels={'Price_to_Income_Ratio': 'Price as % of Income'}
+)
+st.plotly_chart(affordability_fig, use_container_width=True)
+
+st.subheader("Price Trends Overtime")
+
+# Limit to 3 commodities max
+selected_commodities = st.multiselect(
+    "Select commodities (max 3)",
+    options=sorted(filtered['Commodity_Name'].unique()),
+    default=sorted(filtered['Commodity_Name'].unique())[:2],
+    max_selections=3
+)
+
+if selected_commodities:
+    # Aggregate to monthly national averages
+    compare_data = filtered[filtered['Commodity_Name'].isin(selected_commodities)]
+    compare_data['Month'] = compare_data['Reference_Period_Start'].dt.to_period('M').astype(str)
+    national_avg = compare_data.groupby(['Month', 'Commodity_Name'])['Price'].mean().reset_index()
+    
+    fig = px.line(
+        national_avg,
+        x='Month',
+        y='Price',
+        color='Commodity_Name',
+        line_dash='Commodity_Name',
+        markers=True,
+        title='National Average Price Comparison',
+        labels={'Price': 'Price (LKR)'},
+        template='plotly_white'
+    )
+    fig.update_layout(
+        hovermode='x unified',
+        legend_title_text='Commodity',
+        xaxis=dict(tickangle=45),
+        height=500
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("Please select at least one commodity")
+
+st.subheader("Animated Price Evolution")
+# Aggregate to quarterly data to reduce noise
+filtered['Quarter'] = filtered['Reference_Period_Start'].dt.to_period('Q').astype(str)
+quarterly_avg = filtered.groupby(['Quarter', 'Commodity_Name', 'Admin1_Name'])['Price'].mean().reset_index()
+
+fig = px.scatter(
+    quarterly_avg,
+    x='Quarter',
+    y='Price',
+    size='Price',
+    color='Commodity_Name',
+    hover_name='Admin1_Name',
+    animation_frame='Quarter',
+    animation_group='Commodity_Name',
+    size_max=45,
+    title='Price Bubbles Over Time',
+    height=600
+)
+fig.update_layout(xaxis={'categoryorder':'category ascending'})
+st.plotly_chart(fig, use_container_width=True)
+
+# Prepare monthly rankings
+st.subheader("Price Ranking Race")
+monthly_rank = filtered.groupby(['Commodity_Name', pd.Grouper(key='Reference_Period_Start', freq='M')])['Price'].mean().reset_index()
+monthly_rank['Month'] = monthly_rank['Reference_Period_Start'].dt.strftime('%Y-%m')
+top_10 = monthly_rank.groupby('Month').apply(lambda x: x.nlargest(10, 'Price')).reset_index(drop=True)
+
+fig = px.bar(
+    top_10,
+    x='Price',
+    y='Commodity_Name',
+    color='Commodity_Name',
+    animation_frame='Month',
+    orientation='h',
+    title='Top 10 Most Expensive Commodities Each Month',
+    range_x=[0, top_10['Price'].max()*1.1]
+)
+fig.update_layout(showlegend=False)
+st.plotly_chart(fig, use_container_width=True)
+
+# Calculate price changes
+st.subheader("Regional Price Waves")
+filtered['Price_Change'] = filtered.groupby(['Commodity_Name','Admin1_Name'])['Price'].pct_change()
+geo_data = filtered.dropna(subset=['Price_Change'])
+
+fig = px.scatter_geo(
+    geo_data,
+    lat='Latitude',
+    lon='Longitude',
+    size=abs(geo_data['Price_Change'])*100,
+    color='Price_Change',
+    hover_name='Market_Name',
+    animation_frame=geo_data['Reference_Period_Start'].dt.strftime('%Y-%m'),
+    projection="natural earth",
+    title='Regional Price Change Intensity',
+    color_continuous_scale=px.colors.diverging.RdYlGn_r,
+    range_color=[-0.5, 0.5]
+)
+fig.update_geos(fitbounds="locations")
+st.plotly_chart(fig, use_container_width=True)
+
+#Geographic Map with Month & Commodity Category Filters
+st.subheader("Interactive Price Map by Month & Commodity Category")
+col1, col2 = st.columns(2)
+with col1:
+    selected_month = st.select_slider(
+        "Select Month",
+        options=sorted(filtered['Start_Month'].unique()),
+        value=filtered['Start_Month'].min()
+    )
+with col2:
+    selected_category = st.selectbox(
+        "Select Commodity Category",
+        options=filtered['Commodity_Category'].unique()
+    )
+month_category_filtered = filtered[filtered['Commodity_Category'] == selected_category]
+if selected_month in month_category_filtered['Start_Month'].unique():
+    month_category_filtered = month_category_filtered[month_category_filtered['Start_Month'] == selected_month]
+else:
+    st.warning(f"No {selected_category} data for month {selected_month}. Showing all months.")
+month_category_filtered['Size_Adjusted'] = month_category_filtered['Price'] * 10  # Adjust multiplier
+if not month_category_filtered.empty:
+    fig_enhanced_map = px.scatter_mapbox(
+        month_category_filtered,
         lat="Latitude",
         lon="Longitude",
         color="Commodity_Name",
-        size="Price",
-        hover_name="Commodity_Name",
-        hover_data=["Admin1_Name", "Price", "Unit"],
+        size="Size_Adjusted", 
+        hover_name="Market_Name",
+        hover_data=["Price", "Unit", "Reference_Period_Start"],
         zoom=6,
-        height=500,
-        title="Geographic Distribution of Food Prices"
+        height=600,
+        title=f"Prices in {selected_category} (Month: {selected_month})",
     )
-    fig_map.update_layout(mapbox_style="carto-positron")
-    fig_map.update_layout(margin={"r":0,"t":50,"l":0,"b":0})
-    st.plotly_chart(fig_map)
-
-    # Overall distribution
-    commodity_counts = Food['Commodity_Name'].value_counts().reset_index()
-    commodity_counts.columns = ['Commodity_Name', 'Count']
-
-    fig_pie = px.pie(
-        commodity_counts, 
-        values='Count', 
-        names='Commodity_Name', 
-        title="Overall Commodity Distribution", 
-        hole=0.2
+    fig_enhanced_map.update_layout(
+        mapbox_style="carto-positron",
+        margin={"r": 0, "t": 50, "l": 0, "b": 0},
     )
-    st.plotly_chart(fig_pie)
+    st.plotly_chart(fig_enhanced_map, use_container_width=True)
+else:
+    st.error("No data available for the selected filters.")
 
-    # Heatmap
-    heat = filtered.groupby(['Admin1_Name', 'Commodity_Category'])['Standardized_Price'].mean().reset_index()
-    fig2 = px.density_heatmap(
-        heat, 
-        x="Admin1_Name", 
-        y="Commodity_Category", 
-        z="Standardized_Price", 
-        color_continuous_scale="Reds", 
-        title="Standarized Prices by Region and Commodity"
-    )
-    fig2.update_layout(height=600)
-    st.plotly_chart(fig2, use_container_width=True)
+# Top 10 Districts by Commodity Category Distribution (Interactive)
+st.subheader("Top 10 Districts by Commodity Category")
+top_admin2 = Food['Provider_Admin2_Name'].value_counts().nlargest(10).index
+filtered_df = Food[Food['Provider_Admin2_Name'].isin(top_admin2)]
 
-    # Market level price distributions
-    fig3 = px.box(
-        filtered, 
-        x="Market_Name", 
-        y="Standardized_Price", 
-        color="Commodity_Category", 
-        points="all", 
-        title="Market-Wise Price Spread"
-    )
-    fig3.update_layout(xaxis_tickangle=-45, height=600)
-    st.plotly_chart(fig3, use_container_width=True)
+# Plot 1: Stacked bar chart by commodity category
+fig1 = px.bar(
+    filtered_df,
+    y='Provider_Admin2_Name',
+    color='Commodity_Category',
+    title='Commodity Distribution in Top 10 Districts',
+    labels={'Provider_Admin2_Name': 'District', 'count': 'Number of Records'},
+    category_orders={'Provider_Admin2_Name': top_admin2},
+    color_discrete_sequence=px.colors.qualitative.Pastel,
+    height=500
+)
+fig1.update_layout(barmode='stack', yaxis={'categoryorder':'total ascending'})
+st.plotly_chart(fig1, use_container_width=True)
 
-    # Top 10 volatile commodities
-    volatility = filtered.groupby("Commodity_Name")["Price_Std"].mean().sort_values(ascending=False).head(10).reset_index()
-    fig4 = px.bar(
-        volatility, 
-        x="Commodity_Name", 
-        y="Price_Std", 
-        color="Commodity_Name", 
-        title="Top 10 Most Volatile Commodities (Based on Std Dev)"
-    )
-    fig4.update_layout(height=500)
-    st.plotly_chart(fig4, use_container_width=True)
 
-    # Histogram
-    fig5 = px.histogram(
-        filtered, 
-        x="Standardized_Price", 
-        color="Commodity_Name", 
-        nbins=40, 
-        title="Price Distribution Histogram by Commodity"
-    )
-    fig5.update_layout(height=500)
-    st.plotly_chart(fig5, use_container_width=True)
+#Commodity distribution across provinces
+st.subheader("Commodity Distribution Across Provinces")
+fig = px.bar(
+    Food,
+    x='Provider_Admin1_Name',
+    color='Commodity_Category',
+    title='Food Commodities by Province',
+    labels={'Provider_Admin1_Name': 'Province', 'count': 'Number of Records'},
+    color_discrete_sequence=px.colors.qualitative.Pastel,
+    height=500
+)
+fig.update_layout(
+    barmode='stack',
+    xaxis={'categoryorder':'total descending'},
+    hovermode='x unified',
+    legend_title_text='Commodity Category'
+)
+st.plotly_chart(fig, use_container_width=True)
 
-    # Monthly trend summary
-    monthly = filtered.groupby(["Start_Month", "Commodity_Category"])["Price_Mean"].mean().reset_index()
-    fig6 = px.line(
-        monthly, 
-        x="Start_Month", 
-        y="Price_Mean", 
-        color="Commodity_Category", 
-        markers=True, 
-        title="Average Monthly Prices by Commodity Category"
-    )
-    fig6.update_layout(height=500)
-    st.plotly_chart(fig6, use_container_width=True)
 
-    # Provider Admin1 and Admin2 charts
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.countplot(
-        data=Food, 
-        y='Provider_Admin1_Name', 
-        order=Food['Provider_Admin1_Name'].value_counts().index, 
-        palette="magma", 
-        ax=ax
-    )
-    ax.set_title("Number of Records by Province (Provider_Admin1_Name)")
-    st.pyplot(fig)
+fig2 = px.bar(
+    filtered_df['Provider_Admin2_Name'].value_counts().reset_index(),
+    y='Provider_Admin2_Name',
+    x='count',
+    title='Total Records in Top 10 Districts',
+    labels={'Provider_Admin2_Name': 'District', 'count': 'Number of Records'},
+    color='count',
+    color_continuous_scale='Bluered',
+    height=500
+)
+fig2.update_layout(yaxis={'categoryorder':'total ascending'})
+st.plotly_chart(fig2, use_container_width=True)
 
-    top_admin2 = Food['Provider_Admin2_Name'].value_counts().nlargest(10).index
-    filtered_df = Food[Food['Provider_Admin2_Name'].isin(top_admin2)]
-    fig, ax = plt.subplots(figsize=(12, 7))
-    sns.countplot(
-        data=filtered_df, 
-        y='Provider_Admin2_Name', 
-        hue='Commodity_Category', 
-        order=top_admin2, 
-        ax=ax, 
-        palette="Set2"
-    )
-    ax.set_title("Top 10 Districts by Commodity Category Distribution")
-    st.pyplot(fig)
+st.subheader("Market Price Comparison")
+market_prices = filtered.groupby(['Market_Name', 'Commodity_Category'])['Price'].mean().unstack()
+fig = px.imshow(
+    market_prices,
+    labels=dict(x="Category", y="Market", color="Price"),
+    color_continuous_scale='Viridis',
+    aspect="auto"
+)
+st.plotly_chart(fig, use_container_width=True)
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.countplot(
-        data=filtered_df, 
-        y='Provider_Admin2_Name', 
-        palette="coolwarm", 
-        order=top_admin2, 
-        ax=ax
-    )
-    ax.set_title("Top 10 Districts by Number of Records (Provider_Admin2_Name)")
-    st.pyplot(fig)
+# price characteristics by category chart
+st.subheader("Price Characteristics by Category")
+radar_data = filtered.groupby('Commodity_Category').agg({
+    'Price': 'mean',
+    'Price_Std': 'mean',
+    'Price_Median': 'mean'
+}).reset_index()
+fig = px.line_polar(
+    radar_data, 
+    r='Price', 
+    theta='Commodity_Category',
+    line_close=True,
+    template="plotly_dark"
+)
+st.plotly_chart(fig, use_container_width=True)
+
+# regional affordability chart
+st.subheader("Regional Affordability")
+region_affordability = filtered.groupby('Admin1_Name').agg({
+    'Price': 'median',
+    'Price_to_Income_Ratio': 'median'
+}).reset_index()
+fig = px.scatter(
+    region_affordability,
+    x='Price',
+    y='Price_to_Income_Ratio',
+    size='Price',
+    color='Admin1_Name',
+    hover_name='Admin1_Name',
+    log_x=True,
+    size_max=40
+)
+st.plotly_chart(fig, use_container_width=True)
+
+# Add near data table
+st.download_button("Export Filtered Data", filtered.to_csv(), "food_prices.csv")
+
