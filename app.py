@@ -7,8 +7,9 @@ from PIL import Image
 import base64
 import os
 from About import show_about
+from Insights import show_Insights
 
-# Background image setup
+# setting the backround image for the dashboard
 def set_background_from_url(url):
     st.markdown(
         f"""
@@ -45,12 +46,164 @@ Food = load_data()
 
 # Sidebar Navigation
 st.sidebar.title("Navigation")
-view = st.sidebar.radio("Go to", ["About", "Dashboard"])
+view = st.sidebar.radio("Go to", ["About", "Dashboard", "Animations", "Insights"])
 
 if view == "About":
     show_about()
     st.stop()
 
+elif view == "Insights":
+    show_Insights(Food) 
+    st.stop()
+
+elif view == "Animations":
+    st.title("Animated Food Price Visualizations")
+    st.markdown("""
+    Explore dynamic visualizations that bring Sri Lanka's food price trends to life. 
+    These animations reveal temporal patterns, regional variations, and commodity comparisons.
+    """)
+
+    # Creating 3 tabs for the 3 animations types wch will appear in the animations page
+    tab1, tab2, tab3 = st.tabs(["Price Evolution", "Ranking Race", "Regional Waves"])
+    
+    with tab1:
+        st.subheader("Animated Price Evolution Over Time")
+        st.markdown("Watch how prices change across regions and commodities over time.")
+        
+        Food['Quarter'] = Food['Reference_Period_Start'].dt.to_period('Q').astype(str)
+        quarterly_avg = Food.groupby(['Quarter', 'Commodity_Name', 'Admin1_Name'])['Price'].mean().reset_index()
+        
+        selected_commodities = st.multiselect(
+            "Select commodities to highlight (optional)",
+            options=sorted(Food['Commodity_Name'].unique()),
+            default=[]
+        )
+        
+        fig = px.scatter(
+            quarterly_avg,
+            x='Quarter',
+            y='Price',
+            size='Price',
+            color='Commodity_Name',
+            hover_name='Admin1_Name',
+            animation_frame='Quarter',
+            animation_group='Commodity_Name',
+            size_max=45,
+            title='Price Bubbles Over Time',
+            height=600,
+            color_discrete_sequence=px.colors.qualitative.Plotly,
+            category_orders={"Quarter": sorted(quarterly_avg['Quarter'].unique())}
+        )
+    
+        if selected_commodities:
+            fig.update_traces(
+                marker=dict(size=10),
+                selector=lambda t: t.name not in selected_commodities
+            )
+            fig.update_traces(
+                marker=dict(size=20, line=dict(width=2, color='DarkSlateGrey')),
+                selector=lambda t: t.name in selected_commodities
+            )
+        
+        fig.update_layout(
+            xaxis={'categoryorder':'category ascending'},
+            showlegend=True,
+            legend_title_text='Commodities'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        st.subheader("Price Ranking Race")
+        st.markdown("Track which commodities become most expensive over time.")
+        
+        # Prepare monthly rankings
+        monthly_rank = Food.groupby(['Commodity_Name', pd.Grouper(key='Reference_Period_Start', freq='M')])['Price'].mean().reset_index()
+        monthly_rank['Month'] = monthly_rank['Reference_Period_Start'].dt.strftime('%Y-%m')
+    
+        top_n = st.slider("Number of top commodities to show", 5, 20, 10)
+        
+        top_n_rank = monthly_rank.groupby('Month').apply(lambda x: x.nlargest(top_n, 'Price')).reset_index(drop=True)
+        
+        fig = px.bar(
+            top_n_rank,
+            x='Price',
+            y='Commodity_Name',
+            color='Commodity_Name',
+            animation_frame='Month',
+            orientation='h',
+            title=f'Top {top_n} Most Expensive Commodities Each Month',
+            range_x=[0, top_n_rank['Price'].max()*1.1],
+            height=600
+        )
+        fig.update_layout(
+            showlegend=False,
+            yaxis={'categoryorder':'total ascending'},
+            xaxis_title="Price (LKR)",
+            yaxis_title="Commodity"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab3:
+        st.subheader("Regional Price Change Waves")
+        st.markdown("Visualize how price changes propagate across regions over time.")
+        
+        # Calculate price changes
+        Food['Price_Change'] = Food.groupby(['Commodity_Name','Admin1_Name'])['Price'].pct_change()
+        geo_data = Food.dropna(subset=['Price_Change'])
+        
+        # this code here to help users to select the category
+        selected_category = st.selectbox(
+            "Select commodity category",
+            options=Food['Commodity_Category'].unique()
+        )
+        geo_data = geo_data[geo_data['Commodity_Category'] == selected_category]
+        
+        # Creating an animated map
+        fig = px.scatter_geo(
+            geo_data,
+            lat='Latitude',
+            lon='Longitude',
+            size=abs(geo_data['Price_Change'])*100,
+            color='Price_Change',
+            hover_name='Market_Name',
+            animation_frame=geo_data['Reference_Period_Start'].dt.strftime('%Y-%m'),
+            projection="natural earth",
+            title=f'Regional {selected_category} Price Change Intensity',
+            color_continuous_scale=px.colors.diverging.RdYlGn_r,
+            range_color=[-0.5, 0.5],
+            scope='asia',
+            height=600
+        )
+        fig.update_geos(
+            fitbounds="locations",
+            visible=False,
+            resolution=50,
+            showcountries=True,
+            countrycolor="Black"
+        )
+        fig.update_layout(
+            geo=dict(
+                landcolor='LightGrey',
+                subunitcolor="Grey",
+            ),
+            margin={"r":0,"t":50,"l":0,"b":0}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    st.subheader("Animation Controls Tips")
+    st.markdown("""
+    - Use the play button to start/stop animations
+    - Drag the slider to move to specific time periods
+    - Hover over elements to see detailed information
+    - Use the filters to focus on specific commodities or categories
+    """)
+    
+    st.stop()
+
+# Dashboard Page Content (only shown when "Dashboard" is selected)
+st.title("Sri Lanka's Food Prices Uncovered")
+st.markdown("Track Real-time shifts and historical trends in food prices across Sri Lanka. From urban centers to remote markets, this dashboard reveals how economic conditions and local dynamics influence the cost of everyday essentials. Powered by curated data from the Humanitarian Data Exchange (HDX), it's your window into understanding affordability, market volatility, and regional disparities at a glance.")
 # Dashboard Page Content
 st.title("Sri Lanka's Food Prices Uncovered")
 st.markdown("Track Real-time shifts and historical trends in food prices across Sri Lanka. From urban centers to remote markets, this dashboard reveals how economic conditions and local dynamics influence the cost of everyday essentials. Powered by curated data from the Humanitarian Data Exchange (HDX), it's your window into understanding affordability, market volatility, and regional disparities at a glance.")
@@ -238,7 +391,6 @@ px.pie(
     textinfo='percent+label'
 )
 
-
 # Simplified grouped bar chart
 st.subheader("Average Prices by Region & Category")
 fig = px.bar(
@@ -257,7 +409,6 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-
 # Create a simple heatmap
 st.subheader("Market Commodity Distribution")
 fig = px.density_heatmap(
@@ -273,7 +424,6 @@ fig.update_layout(
     xaxis={'categoryorder':'total descending'}
 )
 st.plotly_chart(fig, use_container_width=True)
-
 
 # Top 10 volatile commodities
 st.subheader("Top 10 Volatile Commodities ")
@@ -304,7 +454,6 @@ fig.update_layout(
     showlegend=False
 )
 st.plotly_chart(fig, use_container_width=True)
-
 
 # Monthly trend summary
 st.subheader("Monthly prices by commodity category")
@@ -350,7 +499,7 @@ if not compare_df.empty:
     st.plotly_chart(fig_compare, use_container_width=True)
     
     # Add statistical summary
-    st.write("*Statistical Summary*")
+    st.write("Statistical Summary")
     stats = compare_df.groupby('Admin1_Name')['Price'].agg(['mean', 'median', 'std', 'min', 'max'])
     st.dataframe(stats.style.background_gradient(cmap='Blues'))
 else:
@@ -438,68 +587,7 @@ if selected_commodities:
 else:
     st.warning("Please select at least one commodity")
 
-st.subheader("Animated Price Evolution")
-# Aggregate to quarterly data to reduce noise
-filtered['Quarter'] = filtered['Reference_Period_Start'].dt.to_period('Q').astype(str)
-quarterly_avg = filtered.groupby(['Quarter', 'Commodity_Name', 'Admin1_Name'])['Price'].mean().reset_index()
-
-fig = px.scatter(
-    quarterly_avg,
-    x='Quarter',
-    y='Price',
-    size='Price',
-    color='Commodity_Name',
-    hover_name='Admin1_Name',
-    animation_frame='Quarter',
-    animation_group='Commodity_Name',
-    size_max=45,
-    title='Price Bubbles Over Time',
-    height=600
-)
-fig.update_layout(xaxis={'categoryorder':'category ascending'})
-st.plotly_chart(fig, use_container_width=True)
-
-# Prepare monthly rankings
-st.subheader("Price Ranking Race")
-monthly_rank = filtered.groupby(['Commodity_Name', pd.Grouper(key='Reference_Period_Start', freq='M')])['Price'].mean().reset_index()
-monthly_rank['Month'] = monthly_rank['Reference_Period_Start'].dt.strftime('%Y-%m')
-top_10 = monthly_rank.groupby('Month').apply(lambda x: x.nlargest(10, 'Price')).reset_index(drop=True)
-
-fig = px.bar(
-    top_10,
-    x='Price',
-    y='Commodity_Name',
-    color='Commodity_Name',
-    animation_frame='Month',
-    orientation='h',
-    title='Top 10 Most Expensive Commodities Each Month',
-    range_x=[0, top_10['Price'].max()*1.1]
-)
-fig.update_layout(showlegend=False)
-st.plotly_chart(fig, use_container_width=True)
-
-# Calculate price changes
-st.subheader("Regional Price Waves")
-filtered['Price_Change'] = filtered.groupby(['Commodity_Name','Admin1_Name'])['Price'].pct_change()
-geo_data = filtered.dropna(subset=['Price_Change'])
-
-fig = px.scatter_geo(
-    geo_data,
-    lat='Latitude',
-    lon='Longitude',
-    size=abs(geo_data['Price_Change'])*100,
-    color='Price_Change',
-    hover_name='Market_Name',
-    animation_frame=geo_data['Reference_Period_Start'].dt.strftime('%Y-%m'),
-    projection="natural earth",
-    title='Regional Price Change Intensity',
-    color_continuous_scale=px.colors.diverging.RdYlGn_r,
-    range_color=[-0.5, 0.5]
-)
-fig.update_geos(fitbounds="locations")
-st.plotly_chart(fig, use_container_width=True)
-
-#Geographic Map with Month & Commodity Category Filters
+# Geographic Map with Month & Commodity Category Filters
 st.subheader("Interactive Price Map by Month & Commodity Category")
 col1, col2 = st.columns(2)
 with col1:
@@ -639,4 +727,3 @@ st.plotly_chart(fig, use_container_width=True)
 
 # Add near data table
 st.download_button("Export Filtered Data", filtered.to_csv(), "food_prices.csv")
-

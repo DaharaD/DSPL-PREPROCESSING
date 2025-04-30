@@ -18,7 +18,7 @@ def show_about():
        From dynamic charts to image-based commodity insights, this dashboard transforms raw data into meaningful, actionable information—with clarity, simplicity, and style.
     """)
 
-    st.subheader("Core Highlights")
+    st.subheader("Core")
     st.markdown("""
     - Interactive charts including line graphs, heatmaps, and bar charts
     - Filters by region, commodity, and unit
@@ -82,7 +82,7 @@ def show_about():
 
     st.divider()
     
-    # ====== Commodity Information Section ======
+    #Commodity Information Section 
     st.title("Commodity Details")
     st.subheader(f"Detailed Information for: {selected_commodity}")
     
@@ -173,3 +173,4 @@ def show_about():
 if __name__ == "__main__":
     st.set_page_config(page_title="About | Food Prices Dashboard", layout="centered")
     show_about()
+
