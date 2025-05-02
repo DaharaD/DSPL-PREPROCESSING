@@ -7,38 +7,27 @@ def show_Insights(Food):
     st.title("Quick Insights For Policy Makers")
     st.markdown("Data Driven Quick Insights for Policy Makers")
     
-    # Converting data colums to ensure proper format 
-    Food['Reference_Period_Start'] = pd.to_datetime(Food['Reference_Period_Start'])
-    
     # Adding side bar filters
-    st.sidebar.header("Filters")
+    st.sidebar.header("Filters For Top Trends In Tab 2")
     selected_commodities = st.sidebar.multiselect(
         "Select Commodities",
         options=Food['Commodity_Name'].unique(),
         default=Food['Commodity_Name'].unique()
     )
     
-    date_range = st.sidebar.date_input(
-        "Select Date Range",
-        value=[Food['Reference_Period_Start'].min(), Food['Reference_Period_Start'].max()],
-        min_value=Food['Reference_Period_Start'].min(),
-        max_value=Food['Reference_Period_Start'].max()
-    )
-    
     # Applying filters
     filtered_data = Food[
-        (Food['Commodity_Name'].isin(selected_commodities)) &
-        (Food['Reference_Period_Start'] >= pd.to_datetime(date_range[0])) &
-        (Food['Reference_Period_Start'] <= pd.to_datetime(date_range[1]))
+        (Food['Commodity_Name'].isin(selected_commodities)) 
     ]
     
-    # Creating and adding 5 tabs for policy makers to make quick decisions
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    # Creating and adding 6 tabs for policy makers to make quick decisions
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Price Alerts", 
         "Top Trends", 
         "Affordability",
         "Volatility",
-        "Staple Foods"
+        "Staple Foods",
+        "Affordability Alerts"
     ])
     
     with tab1:
@@ -116,6 +105,44 @@ def show_Insights(Food):
         else:
             st.warning("No staple food data available for the selected filters")
 
+    with tab6:
+        st.header("Food Insecurity and Starvation Risk")
+        st.subheader("Based on food prices vs. local income (UN/WB standards)")
+        
+        # Constants (adjust these for your country)
+        DAILY_INCOME = 500  # Average daily wage in LKR
+        FOOD_SPENDING_LIMIT = 0.3  # UN's 30% threshold
+        
+        def calculate_risk(data, region_type):
+            # 1. Get average prices per region
+            avg_prices = data.groupby([region_type, 'Commodity_Name'])['Price'].mean()
+            
+            # 2. Calculate risk: (monthly food cost) / (30% of monthly income)
+            monthly_income = DAILY_INCOME * 30
+            risk = (avg_prices / monthly_income) / FOOD_SPENDING_LIMIT
+            
+            # 3. Get top 5 riskiest regions
+            top_risks = risk.groupby(region_type).mean().nlargest(5).clip(0, 1)
+            
+            return top_risks.to_frame('Risk %')
+        
+        # Display in 3 columns
+        cols = st.columns(3)
+        regions = [
+            ('Market_Name', 'Riskiest Markets', 'Purples'),
+            ('Admin2_Name', 'Riskiest Districts', 'Oranges'),
+            ('Admin1_Name', 'Riskiest Provinces', 'Greens')
+        ]
+        
+        for i, (region_col, title, color) in enumerate(regions):
+            with cols[i]:
+                st.markdown(f"**{title}**")
+                risk_df = calculate_risk(filtered_data, region_col)
+                st.dataframe(
+                    risk_df.style.format("{:.0%}").background_gradient(color),
+                    height=200
+                )
+
     # Key descriptions for policy makers for easy understanding
     st.sidebar.markdown("Policy Insights")
     st.sidebar.markdown("""
@@ -124,4 +151,5 @@ def show_Insights(Food):
     - Most burdensome foods for poor
     - Markets needing stabilization
     - Staple food affordability
+    - Possibility of the population to starve based on UN/WB Standards)
     """)

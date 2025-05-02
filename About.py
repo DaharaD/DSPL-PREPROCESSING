@@ -134,11 +134,11 @@ def show_about():
             
             st.markdown("Market Information")
             st.markdown(f"""
-            - **Market Name**: {latest_entry['Market_Name']}
-            - **Category**: {latest_entry['Commodity_Category']}
-            - **Current Price**: {latest_entry['Price']} {latest_entry['Unit']}
-            - **Region**: {latest_entry['Provider_Admin1_Name']} > {latest_entry['Provider_Admin2_Name']}
-            - **Last Updated**: {pd.to_datetime(latest_entry['Reference_Period_Start']).strftime('%Y-%m-%d')}
+            - *Market Name*: {latest_entry['Market_Name']}
+            - *Category*: {latest_entry['Commodity_Category']}
+            - *Current Price*: {latest_entry['Price']} {latest_entry['Unit']}
+            - *Region*: {latest_entry['Provider_Admin1_Name']} > {latest_entry['Provider_Admin2_Name']}
+            - *Last Updated*: {pd.to_datetime(latest_entry['Reference_Period_Start']).strftime('%Y-%m-%d')}
             """)
             
             # Price statistics
@@ -148,9 +148,9 @@ def show_about():
             
             st.markdown("Price Statistics")
             st.markdown(f"""
-            - **Average Price**: {avg_price} {latest_entry['Unit']}
-            - **Minimum Price**: {min_price} {latest_entry['Unit']}
-            - **Maximum Price**: {max_price} {latest_entry['Unit']}
+            - *Average Price*: {avg_price} {latest_entry['Unit']}
+            - *Minimum Price*: {min_price} {latest_entry['Unit']}
+            - *Maximum Price*: {max_price} {latest_entry['Unit']}
             """)
         else:
             st.error("No data found for the selected commodity.")
@@ -169,8 +169,4 @@ def show_about():
                 st.image(img_path, use_column_width=True)
     else:
         st.info("No additional images available for this commodity.")
-
-if __name__ == "__main__":
-    st.set_page_config(page_title="About | Food Prices Dashboard", layout="centered")
-    show_about()
 

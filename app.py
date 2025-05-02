@@ -204,9 +204,6 @@ elif view == "Animations":
 # Dashboard Page Content (only shown when "Dashboard" is selected)
 st.title("Sri Lanka's Food Prices Uncovered")
 st.markdown("Track Real-time shifts and historical trends in food prices across Sri Lanka. From urban centers to remote markets, this dashboard reveals how economic conditions and local dynamics influence the cost of everyday essentials. Powered by curated data from the Humanitarian Data Exchange (HDX), it's your window into understanding affordability, market volatility, and regional disparities at a glance.")
-# Dashboard Page Content
-st.title("Sri Lanka's Food Prices Uncovered")
-st.markdown("Track Real-time shifts and historical trends in food prices across Sri Lanka. From urban centers to remote markets, this dashboard reveals how economic conditions and local dynamics influence the cost of everyday essentials. Powered by curated data from the Humanitarian Data Exchange (HDX), it's your window into understanding affordability, market volatility, and regional disparities at a glance.")
 
 # Sidebar filters
 st.sidebar.title("Filter Data")
@@ -224,7 +221,7 @@ years = st.sidebar.slider(
     "Select Year Range", 
     int(Food['Reference_Period_Start'].dt.year.min()), 
     int(Food['Reference_Period_Start'].dt.year.max()), 
-    (2015, 2024)
+    (2023, 2024)
 )
 
 # Apply filters
@@ -534,23 +531,8 @@ fig_corr = px.imshow(
 fig_corr.update_layout(height=800)
 st.plotly_chart(fig_corr, use_container_width=True)
 
-# Price Affordability Analysis
-st.subheader("Price Affordability Analysis")
-avg_income = 50000 
-filtered['Price_to_Income_Ratio'] = filtered['Price'] / avg_income * 100
-
-affordability_fig = px.box(
-    filtered,
-    x='Commodity_Category',
-    y='Price_to_Income_Ratio',
-    color='Admin1_Name',
-    title='Price as Percentage of Average Income by Category and Region',
-    labels={'Price_to_Income_Ratio': 'Price as % of Income'}
-)
-st.plotly_chart(affordability_fig, use_container_width=True)
 
 st.subheader("Price Trends Overtime")
-
 # Limit to 3 commodities max
 selected_commodities = st.multiselect(
     "Select commodities (max 3)",
@@ -708,7 +690,9 @@ fig = px.line_polar(
 st.plotly_chart(fig, use_container_width=True)
 
 # regional affordability chart
-st.subheader("Regional Affordability")
+avg_income = 50000 
+filtered['Price_to_Income_Ratio'] = filtered['Price'] / avg_income * 100
+st.subheader("Regional Affordability compared with income")
 region_affordability = filtered.groupby('Admin1_Name').agg({
     'Price': 'median',
     'Price_to_Income_Ratio': 'median'
@@ -725,5 +709,47 @@ fig = px.scatter(
 )
 st.plotly_chart(fig, use_container_width=True)
 
+# Ranking food affordability from worst to best (districts) 
+ranking = Food.groupby('Admin2_Name')['Price'].mean().reset_index()
+st.subheader('Affordability Ranking compared with price')
+fig = px.bar(ranking.sort_values('Price', ascending=False),
+             x='Admin2_Name',
+             y='Price',
+             color='Price')
+st.plotly_chart(fig, use_container_width=True)
+
+# Calculate yearly volatility (simplified)
+Food['Year'] = pd.to_datetime(Food['Reference_Period_Start']).dt.year
+volatility = Food.groupby('Year')['Price'].std() / Food.groupby('Year')['Price'].mean()
+volatility = volatility.sort_values(ascending=False).reset_index(name='Volatility')
+
+st.subheader('Yearly Price Volatility Ranking')
+fig = px.bar(volatility, 
+             x='Year', 
+             y='Volatility',
+             color='Volatility',
+             color_continuous_scale='reds',
+             text='Volatility')
+fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+fig.update_layout(yaxis_title='Price Volatility Index')
+st.plotly_chart(fig, use_container_width=True)
+st.dataframe(volatility.style.background_gradient(cmap='Reds'))
+
+# All 11 urban districts
+urban = ['Colombo', 'Gampaha', 'Kandy', 'Kalutara',
+         'Galle', 'Matara', 'Negombo', 'Kurunegala',
+         'Anuradhapura', 'Ratnapura', 'Badulla']
+
+Food['Type'] = Food['Admin2_Name'].apply(lambda x: 'Urban' if x in urban else 'Rural')
+prices = Food.groupby('Type')['Price'].median()
+
+# Display results
+st.subheader('Urban vs Rural Price Comparison')
+st.bar_chart(prices)
+st.write(f"Urban Median: LKR {prices['Urban']:,.0f}")
+st.write(f"Rural Median: LKR {prices['Rural']:,.0f}")
+st.write(f"Difference: LKR {prices['Rural']-prices['Urban']:,.0f}")
+
 # Add near data table
 st.download_button("Export Filtered Data", filtered.to_csv(), "food_prices.csv")
+
