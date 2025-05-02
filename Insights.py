@@ -27,7 +27,7 @@ def show_Insights(Food):
         "Affordability",
         "Volatility",
         "Staple Foods",
-        "Affordability Alerts"
+        "starvation Alerts"
     ])
     
     with tab1:
